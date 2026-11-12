@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>История цен — Топливо ПМР</title>
+<meta name="description" content="История цен на бензин и дизель «Шерифа» в Приднестровье с марта 2026: график, минимумы, максимумы и все изменения.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+.controls{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.stat h3{font-size:1rem;display:flex;align-items:center;gap:.5rem}
+.stat .sw{width:10px;height:10px;border-radius:50%}
+.stat .now{font-weight:800;font-size:2rem;letter-spacing:-.04em;margin-top:6px}
+.stat dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:.88rem;margin-top:8px}
+.stat dt{opacity:.65}.stat dd{text-align:right;font-weight:600}
+.chart-box{position:relative;padding:20px 16px 12px}
+#chart{width:100%;height:auto;display:block;touch-action:pan-y}
+#chart .grid line{stroke:var(--line)}
+#chart text{fill:currentColor;opacity:.6;font:500 11px var(--font)}
+#chart .ln{fill:none;stroke-width:2.5;stroke-linejoin:round}
+#chart .cross{stroke:var(--ink);stroke-opacity:.3;stroke-dasharray:3 3}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:12px;padding:8px 10px;font-size:.82rem;line-height:1.45;white-space:nowrap;transform:translate(-50%,-110%);opacity:0;transition:opacity .15s}
+.tip.on{opacity:1}
+.changes{margin-top:40px}
+.changes h2{font-size:1.8rem;margin-bottom:14px}
+.tbl{width:100%;border-collapse:collapse}
+.tbl-wrap{overflow-x:auto}
+.tbl th,.tbl td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl th{font-weight:500;font-size:.82rem;opacity:.6}
+.tbl td+td,.tbl th+th{text-align:right}
+.d-down{color:var(--down)}.d-up{color:var(--up)}
+.more{margin-top:14px}
+</style>
+</head>
+<body>
+<main class="gutter"><div class="wrap">
+  <div class="page-head"><h1>История цен</h1><p id="lead">Загружаем историю…</p></div>
+  <div class="controls">
+    <div class="chips" id="fuels" aria-label="Виды топлива"></div>
+    <div class="chips" id="ranges" aria-label="Период">
+      <button class="chip" type="button" data-r="30" aria-pressed="false">Месяц</button>
+      <button class="chip" type="button" data-r="90" aria-pressed="true">3 месяца</button>
+      <button class="chip" type="button" data-r="0" aria-pressed="false">Всё время</button>
+    </div>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="box chart-box"><svg id="chart" viewBox="0 0 900 340" role="img" aria-label="График цен"></svg><div class="tip num" id="tip"></div></div>
+  <section class="changes"><h2>Все изменения</h2><div class="box tbl-wrap"><table class="tbl num"><thead id="thead"></thead><tbody id="rows"></tbody></table></div>
+  <button class="btn ghost more" type="button" id="more">Показать ещё</button></section>
+</div></main>
+<script type="module">
+import { chrome, watchData, FUEL_META, rub, esc, fmtDate, param } from './assets/app.js';
+chrome();
+const $ = s => document.querySelector(s);
+let api, range = 90, shown = new Set(), limit = 25;
+
+// ряд точек для периода: цена держится до следующего изменения
+function series(id) {
+  const h = api.history, edge = range ? Date.now() - range * 864e5 : new Date(h[0].t).getTime();
+  const before = [...h].reverse().find(p => new Date(p.t).getTime() <= edge);
+  const pts = h.filter(p => new Date(p.t).getTime() > edge).map(p => ({ t: new Date(p.t).getTime(), v: p.rub[id] }));
+  return [{ t: edge, v: before ? before.rub[id] : h[0].rub[id] }, ...pts, { t: Date.now(), v: api.price(id) }];
+}
+
+function draw() {
+  const W = 900, H = 340, L = 44, R = 16, T = 16, B = 30, svg = $('#chart');
+  const all = [...shown].map(id => ({ id, s: series(id) }));
+  const t0 = all[0].s[0].t, t1 = Date.now(), vs = all.flatMap(a => a.s.map(p => p.v));
+  const lo = Math.floor(Math.min(...vs) - .5), hi = Math.ceil(Math.max(...vs) + .5);
+  const X = t => L + (t - t0) / (t1 - t0) * (W - L - R), Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  let s = '<defs>' + all.map(({ id }) => `<linearGradient id="g-${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${FUEL_META[id].color}" stop-opacity=".18"/><stop offset="1" stop-color="${FUEL_META[id].color}" stop-opacity="0"/></linearGradient>`).join('') + '</defs><g class="grid">';
+  const step = Math.max(1, Math.ceil((hi - lo) / 6));
+  for (let v = lo; v <= hi; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 8}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`;
+  const ticks = 5;
+  for (let i = 0; i <= ticks; i++) { const t = t0 + (t1 - t0) * i / ticks; s += `<text x="${X(t)}" y="${H - 8}" text-anchor="${i === 0 ? 'start' : i === ticks ? 'end' : 'middle'}">${fmtDate(t, { day: 'numeric', month: 'short' })}</text>`; }
+  s += '</g>';
+  all.forEach(({ id, s: pts }) => {
+    let d = ''; pts.forEach((p, i) => { d += i ? `H${X(p.t).toFixed(1)}V${Y(p.v).toFixed(1)}` : `M${X(p.t).toFixed(1)} ${Y(p.v).toFixed(1)}`; });
+    if (all.length === 1) s += `<path d="${d}V${H - B}H${L}Z" fill="url(#g-${id})"/>`;
+    s += `<path class="ln" d="${d}" stroke="${FUEL_META[id].color}"/>`;
+  });
+  s += `<line class="cross" id="cross" y1="${T}" y2="${H - B}" x1="-10" x2="-10"/>`;
+  svg.innerHTML = s;
+  // подсказка при наведении/касании: цены всех выбранных видов на эту дату
+  const tip = $('#tip'), box = $('.chart-box');
+  const at = (pts, t) => { let v = pts[0].v; for (const p of pts) { if (p.t <= t) v = p.v; else break; } return v; };
+  svg.onpointermove = e => {
+    const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W;
+    if (x < L || x > W - R) { tip.classList.remove('on'); return; }
+    const t = t0 + (x - L) / (W - L - R) * (t1 - t0);
+    $('#cross').setAttribute('x1', x); $('#cross').setAttribute('x2', x);
+    tip.innerHTML = `<b>${fmtDate(t, { day: 'numeric', month: 'long', year: 'numeric' })}</b><br>` + all.map(({ id, s: pts }) => `${esc(api.fuel(id).name)}: ${rub(at(pts, t))} ₽`).join('<br>');
+    tip.style.left = (e.clientX - box.getBoundingClientRect().left) + 'px'; tip.style.top = (e.clientY - box.getBoundingClientRect().top) + 'px';
+    tip.classList.add('on');
+  };
+  svg.onpointerleave = () => tip.classList.remove('on');
+}
+
+function stats() {
+  $('#stats').innerHTML = [...shown].map(id => {
+    const pts = series(id), vs = pts.map(p => p.v), ch = +(api.price(id) - pts[0].v).toFixed(2);
+    return `<div class="box stat num"><h3><span class="sw" style="background:${FUEL_META[id].color}"></span>${esc(api.fuel(id).name)}</h3><div class="now">${rub(api.price(id))} ₽</div>
+      <dl><dt>Минимум</dt><dd>${rub(Math.min(...vs))}</dd><dt>Максимум</dt><dd>${rub(Math.max(...vs))}</dd><dt>За период</dt><dd class="${ch < 0 ? 'd-down' : ch > 0 ? 'd-up' : ''}">${ch > 0 ? '+' : ch < 0 ? '−' : ''}${rub(Math.abs(ch))}</dd></dl></div>`;
+  }).join('');
+}
+
+function table() {
+  const h = api.history;
+  $('#thead').innerHTML = `<tr><th>Дата</th>${api.fuels.map(f => `<th>${FUEL_META[f.id].code}</th>`).join('')}</tr>`;
+  const rows = [];
+  for (let i = h.length - 1; i > 0 && rows.length < limit; i--) {
+    rows.push(`<tr><td>${new Date(h[i].t).toLocaleString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>${api.fuels.map(f => {
+      const d = +(h[i].rub[f.id] - h[i - 1].rub[f.id]).toFixed(2);
+      return `<td>${rub(h[i].rub[f.id])}${d ? ` <span class="${d < 0 ? 'd-down' : 'd-up'}">${d > 0 ? '+' : '−'}${rub(Math.abs(d))}</span>` : ''}</td>`;
+    }).join('')}</tr>`);
+  }
+  $('#rows').innerHTML = rows.join('');
+  $('#more').hidden = limit >= h.length - 1;
+}
+
+function render() { draw(); stats(); table(); }
+
+watchData(next => {
+  api = next;
+  if (!shown.size) {
+    const pick = param('fuel');
+    (api.fuel(pick) ? [pick] : ['f-95', 'f-dt']).forEach(id => shown.add(id));
+    if (api.fuel(pick)) document.documentElement.dataset.fuel = pick;
+    $('#fuels').innerHTML = api.fuels.map(f => `<button class="chip" type="button" data-f="${f.id}" aria-pressed="${shown.has(f.id)}"><span class="sw" style="background:${FUEL_META[f.id].color}"></span>${esc(f.name)}</button>`).join('');
+    document.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.f; shown.has(id) ? shown.size > 1 && shown.delete(id) : shown.add(id);
+      document.querySelectorAll('[data-f]').forEach(x => x.setAttribute('aria-pressed', shown.has(x.dataset.f))); render();
+    }));
+    document.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => {
+      range = +b.dataset.r; document.querySelectorAll('[data-r]').forEach(x => x.setAttribute('aria-pressed', x === b)); render();
+    }));
+    $('#more').addEventListener('click', () => { limit += 50; table(); });
+  }
+  const h = api.history;
+  $('#lead').textContent = `${h.length} изменений цен с ${fmtDate(h[0].t, { day: 'numeric', month: 'long', year: 'numeric' })}. Цена держится до следующего изменения, поэтому линии ступенчатые. Наведите на график, чтобы увидеть цены на дату.`;
+  render();
+});
+</script>
+</body>
+</html>
