@@ -7,97 +7,238 @@
 <meta name="description" content="Калькулятор поездки и полного бака по текущим ценам «Шерифа» в Приднестровье.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/app.css">
 <style>
-.grid2{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:16px;align-items:start}
-.form{display:grid;gap:22px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:16px;align-items:start}
+.form{display:grid;gap:28px}
 .field{display:grid;gap:8px}
-.field>span{font-size:.85rem;font-weight:600;opacity:.7}
+.field>label,.field>.lab{font-size:.9rem;font-weight:500}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.inp{width:100%;height:44px;border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:0 12px;transition:border-color .15s var(--ease)}
+.inp:focus{outline:none;border-color:var(--ink)}
+.inp.short{width:120px}
+.combo{position:relative}
+.list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;list-style:none;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.08);max-height:320px;overflow:auto}
+.list li{display:grid;gap:2px;padding:8px 10px;border-radius:var(--r-sm);cursor:pointer}
+.list li[aria-selected=true],.list li:hover{background:var(--raised)}
+.list li small{color:var(--ink-3);font-size:.82rem}
+.list .empty{cursor:default;color:var(--ink-3)}
+.list .empty:hover{background:none}
+.help{font-size:.85rem;color:var(--ink-2)}
+.help a{color:var(--ink)}
+.picked{font-size:.92rem;color:var(--ink-2)}
+.picked b{color:var(--ink);font-weight:500}
 .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-.inp{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:.6rem .8rem;width:120px}
-input[type=range]{width:100%;accent-color:var(--ink)}
-.switch{display:inline-flex;align-items:center;gap:.5rem;font-weight:500;cursor:pointer}
-.result{position:sticky;top:84px;display:grid;gap:14px}
-.result .total{font-weight:800;font-size:clamp(2.6rem,6vw,3.8rem);letter-spacing:-.05em;line-height:1}
-.result dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px}
-.result dt{opacity:.65}.result dd{text-align:right;font-weight:600}
+input[type=range]{flex:1;min-width:160px;accent-color:var(--ink)}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.switch input{width:18px;height:18px;accent-color:var(--ink)}
+.route-note{font-size:.88rem;color:var(--ink-2);border-left:2px solid var(--line);padding-left:12px}
+.route-note.err{color:var(--up);border-color:var(--up)}
+.result{position:sticky;top:76px;display:grid;gap:16px}
+.result .for{display:flex;align-items:center;gap:8px;color:var(--ink-2);font-size:.92rem}
+.result .total{font-weight:500;font-size:clamp(2.5rem,5vw,3.5rem);letter-spacing:-.03em;line-height:1}
+.result dl{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:.95rem;border-top:1px solid var(--line);padding-top:16px}
+.result dt{color:var(--ink-2)}.result dd{text-align:right}
 .extra{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}
-.extra h2{font-size:1.3rem;margin-bottom:10px}
+.extra h2{font-size:1.15rem;margin-bottom:8px}
 .mini{width:100%;border-collapse:collapse}
-.mini td{padding:9px 0;border-bottom:1px solid var(--line)}
-.mini td+td{text-align:right;font-weight:600}
+.mini td{padding:10px 0;border-bottom:1px solid var(--line)}
+.mini td+td{text-align:right}
 .mini tr:last-child td{border-bottom:0}
-.note{font-size:.82rem;opacity:.65;margin-top:10px}
-@media (max-width:820px){.grid2,.extra{grid-template-columns:minmax(0,1fr)}.result{position:static}}
+.note{font-size:.85rem;color:var(--ink-3);margin-top:8px}
+.credit{font-size:.8rem;color:var(--ink-3);margin-top:24px}
+@media (max-width:820px){.grid2,.extra,.pair{grid-template-columns:minmax(0,1fr)}.result{position:static}}
 </style>
 </head>
 <body>
 <main class="gutter"><div class="wrap">
-  <div class="page-head"><h1>Сколько стоит поездка</h1><p>Считаем по текущим ценам «Шерифа». Расстояния по дорогам примерные, расход лучше взять из бортового компьютера.</p></div>
+  <div class="page-head"><h1>Сколько стоит поездка</h1><p>Введите свою машину и маршрут. Считаем по сегодняшним ценам «Шерифа»; расстояние — по дорогам, через открытые пункты пропуска.</p></div>
   <div class="grid2">
     <div class="box form">
-      <div class="field"><span>Топливо</span><div class="chips" id="fuel"></div></div>
-      <div class="field"><span>Машина (подставит расход и бак)</span><div class="chips" id="cars"></div></div>
-      <div class="field"><span>Маршрут</span><div class="chips" id="routes"></div>
-        <div class="row"><input class="inp num" id="km" type="number" inputmode="numeric" min="1" max="3000" value="75" aria-label="Расстояние, км"><span>км</span>
-        <label class="switch"><input type="checkbox" id="both" checked> туда и обратно</label></div></div>
-      <div class="field"><span>Расход: <b class="num" id="consOut"></b> л на 100 км</span><input type="range" id="cons" min="3" max="20" step="0.1" value="7.5" aria-label="Расход, литров на 100 км"></div>
+      <div class="field">
+        <label for="car">Машина</label>
+        <div class="combo"><input class="inp" id="car" type="text" autocomplete="off" placeholder="Например, Passat B6 TDI или Логан 2012" role="combobox" aria-expanded="false" aria-controls="carList" aria-autocomplete="list"><ul class="list" id="carList" role="listbox" hidden></ul></div>
+        <p class="picked" id="carPicked" hidden></p>
+        <p class="help" id="carHelp">Можно писать по-русски, с годом и объёмом. Нет вашей машины — укажите расход ниже или <a id="carSearch" href="https://yandex.ru/search/?text=%D1%81%D1%80%D0%B5%D0%B4%D0%BD%D0%B8%D0%B9%20%D1%80%D0%B0%D1%81%D1%85%D0%BE%D0%B4%20%D1%82%D0%BE%D0%BF%D0%BB%D0%B8%D0%B2%D0%B0" target="_blank" rel="noopener">найдите его в Яндексе</a></p>
+      </div>
+      <div class="field">
+        <label for="consN">Расход, литров на 100 км</label>
+        <div class="row"><input class="inp short num" id="consN" type="number" inputmode="decimal" min="2" max="30" step="0.1" value="7.5"><input type="range" id="cons" min="2" max="30" step="0.1" value="7.5" aria-label="Расход, литров на 100 км"></div>
+      </div>
+      <div class="field"><span class="lab">Топливо</span><div class="chips" id="fuel"></div></div>
+      <div class="field">
+        <span class="lab">Маршрут</span>
+        <div class="pair">
+          <div class="combo"><input class="inp" id="from" type="text" autocomplete="off" aria-label="Откуда" placeholder="Откуда" value="Тирасполь" role="combobox" aria-expanded="false" aria-controls="fromList" aria-autocomplete="list"><ul class="list" id="fromList" role="listbox" hidden></ul></div>
+          <div class="combo"><input class="inp" id="to" type="text" autocomplete="off" aria-label="Куда" placeholder="Куда: город, село или адрес" role="combobox" aria-expanded="false" aria-controls="toList" aria-autocomplete="list"><ul class="list" id="toList" role="listbox" hidden></ul></div>
+        </div>
+        <p class="route-note" id="routeNote">Напишите, куда едете, нажмите Enter и выберите место из списка — расстояние посчитается само. Или введите километры вручную</p>
+        <div class="row"><input class="inp short num" id="km" type="number" inputmode="numeric" min="1" max="5000" value="80" aria-label="Расстояние в одну сторону, км"><span>км в одну сторону</span>
+        <label class="switch"><input type="checkbox" id="both" checked>туда и обратно</label></div>
+      </div>
     </div>
     <aside class="box result" aria-live="polite">
-      <span class="pill" id="rFuel"></span>
+      <div class="for" id="rFuel"></div>
       <div class="total num" id="rTotal">—</div>
-      <dl class="num"><dt>Литров</dt><dd id="rL"></dd><dt>В долларах</dt><dd id="rUsd"></dd><dt>По топливной карте</dt><dd id="rCard"></dd><dt>Стоимость 1 км</dt><dd id="rKm"></dd><dt>Расстояние</dt><dd id="rDist"></dd></dl>
+      <dl class="num"><dt>Литров</dt><dd id="rL"></dd><dt>В долларах</dt><dd id="rUsd"></dd><dt>По топливной карте</dt><dd id="rCard"></dd><dt>Один километр</dt><dd id="rKm"></dd><dt>Всего проехать</dt><dd id="rDist"></dd></dl>
     </aside>
   </div>
   <div class="extra">
     <section class="box"><h2>Полный бак</h2><table class="mini num"><tbody id="tank"></tbody></table><p class="note" id="tankNote"></p></section>
     <section class="box"><h2>Сколько литров на сумму</h2><table class="mini num"><tbody id="sums"></tbody></table></section>
   </div>
+  <p class="credit">Поиск мест — Nominatim, маршруты — OSRM, карта © участники OpenStreetMap. Расход машин — средние значения по паспортным данным и отзывам водителей.</p>
 </div></main>
 <script type="module">
 import { chrome, watchData, FUEL_META, rub, esc, param } from './assets/app.js';
+import { findCars } from './assets/cars.js';
 chrome();
 const $ = s => document.querySelector(s);
-const ROUTES = [['Тирасполь — Кишинёв', 75], ['Тирасполь — Одесса', 105], ['Тирасполь — Бендеры', 12], ['Тирасполь — Рыбница', 125], ['Тирасполь — Дубоссары', 55]];
-// примерный смешанный расход и объём бака популярных в ПМР машин
-const CARS = [['Daewoo Lanos', 7.5, 48, 'f-95'], ['Lada Granta', 7.2, 50, 'f-95'], ['Toyota Camry', 8.5, 60, 'f-95'], ['VW Passat B5 TDI', 6.5, 62, 'f-dt'], ['Mercedes Sprinter', 10.5, 75, 'f-dt']];
+const TIMEOUT = 10000;
+// Пункты пропуска Молдова — Украина, которые работают. Границу Приднестровья с Украиной Украина закрыла в феврале 2022 года.
+const CROSSINGS = [
+  ['Паланка — Маяки-Удобное', 30.0979, 46.4091],
+  ['Отачь — Могилёв-Подольский', 27.7917, 48.4376],
+  ['Крива — Мамалыга', 26.6660, 48.2680],
+  ['Джурджулешты — Рени', 28.1982, 45.4825],
+];
 let api, fuel = 'f-95', tank = 50, built = false;
+const place = { from: { name: 'Тирасполь', lon: 29.6110, lat: 46.8371, cc: 'MD' }, to: null };
 
+// ---------- выпадающий список с подсказками: клавиатура, мышь, касание
+// manual: искать только по Enter или при уходе с поля (так требуют правила Nominatim — без подсказок на каждую букву)
+function combo(input, list, search, render, onPick, manual = false) {
+  let items = [], active = -1, seq = 0;
+  const close = () => { list.hidden = true; input.setAttribute('aria-expanded', 'false'); active = -1; };
+  const show = () => {
+    list.innerHTML = items.length ? items.map((it, i) => `<li role="option" id="${list.id}-${i}" aria-selected="${i === active}">${render(it)}</li>`).join('') : '<li class="empty">Ничего не нашлось</li>';
+    list.hidden = false; input.setAttribute('aria-expanded', 'true');
+    input.setAttribute('aria-activedescendant', active >= 0 ? `${list.id}-${active}` : '');
+  };
+  let picked = '';
+  const pick = i => { if (items[i]) { onPick(items[i]); picked = input.value; close(); } };
+  const run = async () => {
+    const q = input.value.trim(), my = ++seq;
+    if (q.length < 2 || input.value === picked) { close(); return; }
+    const r = await search(q); if (my !== seq) return; items = r; active = -1; show();
+  };
+  if (manual) input.addEventListener('change', run); else input.addEventListener('input', run);
+  input.addEventListener('keydown', e => {
+    if (manual && e.key === 'Enter' && list.hidden) { e.preventDefault(); run(); return; }
+    if (list.hidden) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); active = (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; show(); }
+    else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(active); }
+    else if (e.key === 'Escape') close();
+  });
+  list.addEventListener('pointerdown', e => { const li = e.target.closest('li[role=option]'); if (li) { e.preventDefault(); pick(+li.id.split('-').pop()); } });
+  input.addEventListener('blur', () => setTimeout(close, manual ? 4000 : 120));
+  document.addEventListener('pointerdown', e => { if (!e.target.closest('.combo')) close(); });
+}
+
+// ---------- машины
+function setCar(c) {
+  const [make, model, , years, engine, ft, cons, t] = c;
+  $('#car').value = `${make} ${model}`;
+  $('#carPicked').hidden = false;
+  $('#carPicked').innerHTML = `<b>${esc(make)} ${esc(model)}</b>, ${esc(engine)}, ${ft === 'd' ? 'дизель' : 'бензин'}, ${esc(years)}: около ${String(cons).replace('.', ',')} л на 100 км, бак ${t} л`;
+  setCons(cons); tank = t;
+  setFuel(ft === 'd' ? 'f-dt' : 'f-95');
+}
+combo($('#car'), $('#carList'), q => Promise.resolve(findCars(q)),
+  c => `<span>${esc(c[0])} ${esc(c[1])}, ${esc(c[4])}</span><small>${c[5] === 'd' ? 'дизель' : 'бензин'}, ${esc(c[3])}, ≈${String(c[6]).replace('.', ',')} л/100 км</small>`, setCar);
+$('#car').addEventListener('input', () => {
+  $('#carSearch').href = 'https://yandex.ru/search/?text=' + encodeURIComponent('средний расход топлива ' + $('#car').value.trim());
+  if (!$('#car').value.trim()) $('#carPicked').hidden = true;
+});
+function setCons(v) { const c = Math.min(Math.max(+v || 0, 2), 30); $('#cons').value = c; $('#consN').value = c; calc(); }
+$('#cons').addEventListener('input', () => { $('#consN').value = $('#cons').value; calc(); });
+$('#consN').addEventListener('change', () => setCons($('#consN').value));
+$('#consN').addEventListener('input', () => { if (+$('#consN').value >= 2) { $('#cons').value = $('#consN').value; calc(); } });
+
+// ---------- места и маршрут
+async function getJSON(url) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), TIMEOUT);
+  try { const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error(r.status); return await r.json(); }
+  finally { clearTimeout(t); }
+}
+const COUNTRY = { md: 'Молдова', ua: 'Украина', ro: 'Румыния' };
+function region(ad) {
+  if (ad.country_code === 'md' && /Приднестров|левобережья Днестра/i.test(ad.state || '')) return 'Приднестровье';
+  return [ad.state, COUNTRY[ad.country_code] || ad.country].filter(Boolean).join(', ');
+}
+// поиск мест — Nominatim (OpenStreetMap): понимает русские названия, ближние к ПМР страны выше в выдаче
+async function searchPlaces(q) {
+  try {
+    const d = await getJSON(`https://nominatim.openstreetmap.org/search?format=jsonv2&accept-language=ru&addressdetails=1&limit=6&viewbox=20,53,42,43&q=${encodeURIComponent(q)}`);
+    return d.map(x => {
+      const ad = x.address || {}, town = ad.city || ad.town || ad.village || '';
+      return { name: x.name || town, sub: [town !== x.name ? town : '', region(ad)].filter(Boolean).join(', '), lon: +x.lon, lat: +x.lat, cc: (ad.country_code || '').toUpperCase() };
+    }).filter(x => x.name);
+  } catch { return []; }
+}
+const km = (a, b) => { const R = 6371, r = Math.PI / 180, dLat = (b[1] - a[1]) * r, dLon = (b[0] - a[0]) * r; return 2 * R * Math.asin(Math.sqrt(Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * r) * Math.cos(b[1] * r) * Math.sin(dLon / 2) ** 2)); };
+console.assert(Math.abs(km([29.611, 46.837], [30.733, 46.482]) - 93) < 5, 'Тирасполь — Одесса по прямой около 93 км');
+const osrm = pts => getJSON(`https://router.project-osrm.org/route/v1/driving/${pts.map(p => p.join(',')).join(';')}?overview=false`).then(d => d.routes[0].distance / 1000);
+
+let routeSeq = 0;
+async function route() {
+  const a = place.from, b = place.to, note = $('#routeNote');
+  if (!a || !b) return;
+  const my = ++routeSeq, A = [a.lon, a.lat], B = [b.lon, b.lat];
+  note.className = 'route-note'; note.textContent = 'Считаем расстояние по дорогам';
+  const toUA = new Set([a.cc, b.cc]).has('UA') && new Set([a.cc, b.cc]).has('MD');
+  try {
+    let dist, via = null;
+    if (toUA) {
+      // через Приднестровье в Украину не проехать — пробуем два ближайших открытых пункта пропуска и берём короткий путь
+      const cand = CROSSINGS.map(c => ({ c, d: km(A, [c[1], c[2]]) + km([c[1], c[2]], B) })).sort((x, y) => x.d - y.d).slice(0, 2);
+      const res = await Promise.all(cand.map(({ c }) => osrm([A, [c[1], c[2]], B]).then(d => ({ d, c })).catch(() => null)));
+      const best = res.filter(Boolean).sort((x, y) => x.d - y.d)[0];
+      if (!best) throw new Error('no route');
+      dist = best.d; via = best.c[0];
+    } else dist = await osrm([A, B]);
+    if (my !== routeSeq) return;
+    $('#km').value = Math.round(dist);
+    note.textContent = `${a.name} — ${b.name}: ${Math.round(dist)} км по дорогам` + (via ? `, через пункт пропуска ${via}. Пункты пропуска между Приднестровьем и Украиной закрыты с 2022 года, поэтому путь идёт через Молдову` : '');
+    calc();
+  } catch {
+    if (my !== routeSeq) return;
+    note.className = 'route-note err'; note.textContent = 'Не получилось построить маршрут. Введите километры вручную';
+  }
+}
+for (const key of ['from', 'to']) {
+  combo($('#' + key), $(`#${key}List`), searchPlaces, p => `<span>${esc(p.name)}</span>${p.sub ? `<small>${esc(p.sub)}</small>` : ''}`,
+    p => { place[key] = p; $('#' + key).value = p.name; route(); }, true);
+  $('#' + key).addEventListener('input', () => { place[key] = null; });
+}
+
+// ---------- расчёт
 function setFuel(id) { fuel = id; document.querySelectorAll('[data-f]').forEach(b => b.setAttribute('aria-pressed', b.dataset.f === id)); calc(); }
 function calc() {
-  const km = Math.min(Math.max(+$('#km').value || 0, 0), 3000) * ($('#both').checked ? 2 : 1), cons = +$('#cons').value;
-  const L = km * cons / 100, p = api.price(fuel), usd = api.usd(fuel), card = api.latest.cards?.[0]?.rub?.[fuel];
-  $('#consOut').textContent = cons.toLocaleString('ru-RU');
-  $('#rFuel').textContent = `${api.fuel(fuel).name}, ${rub(p)} ₽/л`;
+  if (!api) return;
+  const dist = Math.min(Math.max(+$('#km').value || 0, 0), 5000) * ($('#both').checked ? 2 : 1), cons = +$('#cons').value;
+  const L = dist * cons / 100, p = api.price(fuel), usd = api.usd(fuel), card = api.latest.cards?.[0]?.rub?.[fuel];
+  $('#rFuel').innerHTML = `<span class="tag" style="background:${FUEL_META[fuel].color}">${FUEL_META[fuel].code}</span>${esc(api.fuel(fuel).name)}, ${rub(p)} ₽ за литр`;
   $('#rTotal').textContent = rub(L * p) + ' ₽';
   $('#rL').textContent = L.toLocaleString('ru-RU', { maximumFractionDigits: 1 }) + ' л';
-  $('#rUsd').textContent = usd ? '$' + (L * usd).toFixed(2) : '—';
+  $('#rUsd').textContent = usd ? '$' + rub(L * usd) : '—';
   $('#rCard').textContent = card ? rub(L * card) + ' ₽' : '—';
   $('#rKm').textContent = rub(cons / 100 * p) + ' ₽';
-  $('#rDist').textContent = km + ' км';
+  $('#rDist').textContent = dist.toLocaleString('ru-RU') + ' км';
   $('#tank').innerHTML = api.fuels.map(f => `<tr><td>${esc(f.name)}</td><td>${rub(tank * api.price(f.id))} ₽</td></tr>`).join('');
-  $('#tankNote').textContent = `Бак ${tank} л. Выберите машину выше, чтобы подставить её бак.`;
-  $('#sums').innerHTML = [100, 500, 1000].map(s => `<tr><td>${s} ₽ на ${esc(api.fuel(fuel).name)}</td><td>${(s / p).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} л</td></tr>`).join('');
+  $('#tankNote').textContent = `Бак ${tank} л. Выберите машину, чтобы подставить её бак`;
+  $('#sums').innerHTML = [100, 500, 1000].map(s => `<tr><td>На ${s} ₽</td><td>${(s / p).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} л</td></tr>`).join('');
 }
-// самопроверка: 150 км × 7,5 л/100 км = 11,25 л
 console.assert(Math.abs(150 * 7.5 / 100 - 11.25) < 1e-9, 'литры поездки');
+['km', 'both'].forEach(id => $('#' + id).addEventListener('input', calc));
 
 watchData(next => {
   api = next;
   if (!built) {
-    if (api.fuel(param('fuel'))) { fuel = param('fuel'); document.documentElement.dataset.fuel = fuel; }
+    if (api.fuel(param('fuel'))) fuel = param('fuel');
     $('#fuel').innerHTML = api.fuels.map(f => `<button class="chip" type="button" data-f="${f.id}" aria-pressed="${f.id === fuel}"><span class="sw" style="background:${FUEL_META[f.id].color}"></span>${esc(f.name)}</button>`).join('');
     document.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => setFuel(b.dataset.f)));
-    $('#cars').innerHTML = CARS.map(([n, c, t], i) => `<button class="chip" type="button" data-car="${i}" aria-pressed="false">${n}</button>`).join('');
-    document.querySelectorAll('[data-car]').forEach(b => b.addEventListener('click', () => {
-      const [, c, t, f] = CARS[+b.dataset.car]; $('#cons').value = c; tank = t;
-      document.querySelectorAll('[data-car]').forEach(x => x.setAttribute('aria-pressed', x === b)); setFuel(f);
-    }));
-    $('#routes').innerHTML = ROUTES.map(([n, km], i) => `<button class="chip" type="button" data-km="${km}" aria-pressed="${i === 0}">${n} · ≈${km} км</button>`).join('');
-    const mark = () => document.querySelectorAll('[data-km]').forEach(b => b.setAttribute('aria-pressed', b.dataset.km === $('#km').value));
-    document.querySelectorAll('[data-km]').forEach(b => b.addEventListener('click', () => { $('#km').value = b.dataset.km; mark(); calc(); }));
-    ['km', 'cons', 'both'].forEach(id => $('#' + id).addEventListener('input', () => { if (id === 'km') mark(); calc(); }));
     built = true;
   }
   calc();

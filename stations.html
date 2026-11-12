@@ -7,27 +7,27 @@
 <meta name="description" content="Все АЗС «Шериф» в Приднестровье по городам: адреса, розничные цены в рублях и долларах, цены по топливным картам, маршрут в Яндекс Картах.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/app.css">
 <style>
 .grid2{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:16px;margin-top:20px;align-items:start}
-.box h2{font-size:1.3rem;margin-bottom:10px}
+.box h2{font-size:1.15rem;margin-bottom:8px}
 .prices{width:100%;border-collapse:collapse}
 .prices td,.prices th{padding:11px 0;border-bottom:1px solid var(--line);text-align:left}
-.prices th{font-weight:500;font-size:.8rem;opacity:.6}
-.prices td+td,.prices th+th{text-align:right}
+.prices th{font-weight:400;font-size:.85rem;color:var(--ink-3)}
+.prices td+td,.prices th+th{text-align:right;padding-left:16px;white-space:nowrap}
 .prices tr:last-child td{border-bottom:0}
-.prices b{font-weight:700}
-.code{display:inline-grid;place-items:center;min-width:36px;height:24px;border-radius:7px;color:#fff;font-weight:700;font-size:.78rem;margin-right:8px}
-.note{font-size:.85rem;opacity:.7;margin-top:12px}
+.prices b{font-weight:500}
+.tag{margin-right:10px}
+.note{font-size:.85rem;color:var(--ink-3);margin-top:12px}
 .stations{list-style:none;padding:0;display:grid}
 .stations li{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
 .stations li:last-child{border-bottom:0}
-.stations b{display:block;font-weight:700}
-.stations span{font-size:.92rem;opacity:.75}
-.links{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
-.links a{display:inline-flex;align-items:center;gap:.3rem;font-weight:600;font-size:.85rem;text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:.32rem .75rem;white-space:nowrap;background:var(--card)}
-.links a:hover{border-color:var(--ink)}
+.stations b{display:block;font-weight:500}
+.stations span{font-size:.92rem;color:var(--ink-2)}
+.links{display:flex;gap:16px;flex-wrap:wrap;justify-content:flex-end}
+.links a{display:inline-flex;align-items:center;gap:6px;font-size:.9rem;white-space:nowrap;text-underline-offset:3px;text-decoration-color:var(--line)}
+.links a:hover{text-decoration-color:var(--ink)}
 @media (max-width:820px){.grid2{grid-template-columns:minmax(0,1fr)}.stations li{flex-direction:column;align-items:flex-start}.links{justify-content:flex-start}}
 </style>
 </head>
@@ -44,7 +44,7 @@
   </div>
 </div></main>
 <script type="module">
-import { chrome, watchData, FUEL_META, icon, rub, esc } from './assets/app.js';
+import { chrome, watchData, icon, rub, esc, tag } from './assets/app.js';
 chrome();
 const $ = s => document.querySelector(s);
 let api, city = 0, built = false;
@@ -52,7 +52,7 @@ let api, city = 0, built = false;
 function render() {
   const c = api.latest.cities[city];
   $('#cityTitle').textContent = `Цены: ${c.name}`;
-  $('#prices').innerHTML = api.fuels.map(f => `<tr><td><span class="code" style="background:${FUEL_META[f.id].color}">${FUEL_META[f.id].code}</span>${esc(f.name)}</td><td><b>${rub(c.rub[f.id])}</b></td><td>${c.usd ? '$' + c.usd[f.id].toFixed(2) : '—'}</td></tr>`).join('');
+  $('#prices').innerHTML = api.fuels.map(f => `<tr><td>${tag(f.id)}${esc(f.name)}</td><td><b>${rub(c.rub[f.id])}</b></td><td>${c.usd ? '$' + rub(c.usd[f.id]) : '—'}</td></tr>`).join('');
   const same = api.latest.cities.every(x => api.fuels.every(f => x.rub[f.id] === api.latest.cities[0].rub[f.id]));
   $('#same').textContent = same ? 'Сейчас цены одинаковые во всех городах Приднестровья.' : 'Цены в городах сейчас отличаются, смотрите по своему.';
   $('#stTitle').textContent = `Заправки: ${c.name} (${c.stations.length})`;
@@ -67,13 +67,13 @@ watchData(next => {
   const cs = api.latest.cities, total = cs.reduce((n, c) => n + c.stations.length, 0);
   $('#lead').textContent = `${total} заправок «Шериф» в ${cs.length} городах. Адреса — с официального сайта, «Маршрут» открывает Яндекс Карты.`;
   if (!built) {
-    $('#cities').innerHTML = cs.map((c, i) => `<button class="chip" type="button" data-c="${i}" aria-pressed="${i === 0}">${esc(c.name)} · ${c.stations.length}</button>`).join('');
+    $('#cities').innerHTML = cs.map((c, i) => `<button class="chip" type="button" data-c="${i}" aria-pressed="${i === 0}">${esc(c.name)}<span class="n">${c.stations.length}</span></button>`).join('');
     document.querySelectorAll('[data-c]').forEach(b => b.addEventListener('click', () => { city = +b.dataset.c; render(); }));
     built = true;
   }
   const cards = api.latest.cards || [];
   $('#cardsHead').innerHTML = `<tr><th>Топливо</th>${cards.map(t => `<th>${esc(t.label)}</th>`).join('')}</tr>`;
-  $('#cards').innerHTML = api.fuels.map(f => `<tr><td><span class="code" style="background:${FUEL_META[f.id].color}">${FUEL_META[f.id].code}</span>${esc(f.name)}</td>${cards.map(t => `<td><b>${rub(t.rub[f.id])}</b></td>`).join('')}</tr>`).join('');
+  $('#cards').innerHTML = api.fuels.map(f => `<tr><td>${tag(f.id)}${esc(f.name)}</td>${cards.map(t => `<td><b>${rub(t.rub[f.id])}</b></td>`).join('')}</tr>`).join('');
   render();
 });
 </script>
