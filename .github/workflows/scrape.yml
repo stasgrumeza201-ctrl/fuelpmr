@@ -1,0 +1,35 @@
+name: Обновление цен с sheriff.md
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # каждые 30 минут (GitHub может запускать с задержкой до ~15 минут)
+  workflow_dispatch: {}       # ручной запуск из вкладки Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Тест парсера
+        run: if [ -d tests/fixtures ]; then node --test tests/; else echo "тестовых страниц нет — пропускаем"; fi
+      - name: Забрать цены
+        run: node scripts/scrape.mjs
+      - name: Сохранить, если цены изменились
+        run: |
+          if git diff --quiet -- data; then echo "без изменений"; exit 0; fi
+          git config user.name "pmr-fuel-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "Цены с sheriff.md: $(date -u +'%Y-%m-%d %H:%M') UTC"
+          git push
