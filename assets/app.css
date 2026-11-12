@@ -38,7 +38,7 @@ h1,h2,h3{font-weight:500;line-height:1.15;text-wrap:balance}
 .chip{display:inline-flex;align-items:center;gap:8px;height:36px;border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:0 12px;font-size:.92rem;cursor:pointer;transition:background-color .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
 .chip:hover{border-color:rgba(26,26,24,.3)}
 .chip[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
-.chip .sw{width:10px;height:10px;border-radius:3px;flex:none}
+.chip .tag{min-width:32px;height:20px;font-size:.72rem;border-radius:4px}
 .chip .n{color:var(--ink-3)}
 .chip[aria-pressed=true] .n{color:rgba(255,255,255,.65)}
 .d-down{color:var(--down)}.d-up{color:var(--up)}

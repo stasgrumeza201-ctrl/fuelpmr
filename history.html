@@ -11,12 +11,15 @@
 <link rel="stylesheet" href="assets/app.css">
 <style>
 .controls{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px}
-.stat h3{font-size:.95rem;display:flex;align-items:center;gap:8px}
-.stat .sw{width:10px;height:10px;border-radius:3px}
-.stat .now{font-weight:500;font-size:2rem;letter-spacing:-.02em;margin-top:8px}
-.stat dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.88rem;margin-top:12px}
-.stat dt{color:var(--ink-2)}.stat dd{text-align:right}
+/* сводка — короткая таблица над графиком, а не ряд одинаковых карточек */
+.sum-wrap{overflow-x:auto;margin-bottom:16px;padding-block:8px}
+.sum{width:100%;border-collapse:collapse}
+.sum th,.sum td{padding:12px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+.sum th{font-weight:400;font-size:.85rem;color:var(--ink-3);padding-top:4px}
+.sum tr:last-child td{border-bottom:0}
+.sum th:first-child,.sum td:first-child{text-align:left;padding-left:0}
+.sum td:first-child .tag{margin-right:10px}
+.sum .now{font-weight:500;font-size:1.25rem}
 .chart-box{position:relative;padding:20px 16px 12px}
 #chart{width:100%;height:auto;display:block;touch-action:pan-y}
 #chart .grid line{stroke:var(--line)}
@@ -33,7 +36,7 @@
 .tbl th{font-weight:400;font-size:.85rem;color:var(--ink-3)}
 .tbl td+td,.tbl th+th{text-align:right}
 .d-down{color:var(--down)}.d-up{color:var(--up)}
-.more{margin-top:14px}
+.more{margin-top:16px}
 </style>
 </head>
 <body>
@@ -47,13 +50,13 @@
       <button class="chip" type="button" data-r="0" aria-pressed="false">Всё время</button>
     </div>
   </div>
-  <div class="stats" id="stats"></div>
+  <div class="box sum-wrap"><table class="sum num"><thead><tr><th>Топливо</th><th>Сейчас, ₽</th><th>Минимум</th><th>Максимум</th><th>За период</th></tr></thead><tbody id="stats"></tbody></table></div>
   <div class="box chart-box"><svg id="chart" viewBox="0 0 900 340" role="img" aria-label="График цен"></svg><div class="tip num" id="tip"></div></div>
   <section class="changes"><h2>Все изменения</h2><div class="box tbl-wrap"><table class="tbl num"><thead id="thead"></thead><tbody id="rows"></tbody></table></div>
   <button class="btn ghost more" type="button" id="more">Показать ещё</button></section>
 </div></main>
 <script type="module">
-import { chrome, watchData, FUEL_META, rub, esc, fmtDate, param } from './assets/app.js';
+import { chrome, watchData, FUEL_META, rub, esc, fmtDate, param, tag } from './assets/app.js';
 chrome();
 const $ = s => document.querySelector(s);
 let api, range = 90, shown = new Set(), limit = 25;
@@ -72,7 +75,7 @@ function draw() {
   const t0 = all[0].s[0].t, t1 = Date.now(), vs = all.flatMap(a => a.s.map(p => p.v));
   const lo = Math.floor(Math.min(...vs) - .5), hi = Math.ceil(Math.max(...vs) + .5);
   const X = t => L + (t - t0) / (t1 - t0) * (W - L - R), Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
-  let s = '<defs>' + all.map(({ id }) => `<linearGradient id="g-${id}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${FUEL_META[id].color}" stop-opacity=".18"/><stop offset="1" stop-color="${FUEL_META[id].color}" stop-opacity="0"/></linearGradient>`).join('') + '</defs><g class="grid">';
+  let s = '<g class="grid">';
   const step = Math.max(1, Math.ceil((hi - lo) / 6));
   for (let v = lo; v <= hi; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 8}" y="${Y(v) + 4}" text-anchor="end">${v}</text>`;
   const ticks = 5;
@@ -80,7 +83,7 @@ function draw() {
   s += '</g>';
   all.forEach(({ id, s: pts }) => {
     let d = ''; pts.forEach((p, i) => { d += i ? `H${X(p.t).toFixed(1)}V${Y(p.v).toFixed(1)}` : `M${X(p.t).toFixed(1)} ${Y(p.v).toFixed(1)}`; });
-    if (all.length === 1) s += `<path d="${d}V${H - B}H${L}Z" fill="url(#g-${id})"/>`;
+    if (all.length === 1) s += `<path d="${d}V${H - B}H${L}Z" fill="${FUEL_META[id].color}" fill-opacity=".08"/>`;
     s += `<path class="ln" d="${d}" stroke="${FUEL_META[id].color}"/>`;
   });
   s += `<line class="cross" id="cross" y1="${T}" y2="${H - B}" x1="-10" x2="-10"/>`;
@@ -103,8 +106,7 @@ function draw() {
 function stats() {
   $('#stats').innerHTML = [...shown].map(id => {
     const pts = series(id), vs = pts.map(p => p.v), ch = +(api.price(id) - pts[0].v).toFixed(2);
-    return `<div class="box stat num"><h3><span class="sw" style="background:${FUEL_META[id].color}"></span>${esc(api.fuel(id).name)}</h3><div class="now">${rub(api.price(id))} ₽</div>
-      <dl><dt>Минимум</dt><dd>${rub(Math.min(...vs))}</dd><dt>Максимум</dt><dd>${rub(Math.max(...vs))}</dd><dt>За период</dt><dd class="${ch < 0 ? 'd-down' : ch > 0 ? 'd-up' : ''}">${ch > 0 ? '+' : ch < 0 ? '−' : ''}${rub(Math.abs(ch))}</dd></dl></div>`;
+    return `<tr><td>${tag(id)}${esc(api.fuel(id).name)}</td><td class="now">${rub(api.price(id))}</td><td>${rub(Math.min(...vs))}</td><td>${rub(Math.max(...vs))}</td><td class="${ch < 0 ? 'd-down' : ch > 0 ? 'd-up' : ''}">${ch > 0 ? '+' : ch < 0 ? '−' : ''}${rub(Math.abs(ch))}</td></tr>`;
   }).join('');
 }
 
@@ -130,7 +132,7 @@ watchData(next => {
     const pick = param('fuel');
     (api.fuel(pick) ? [pick] : ['f-95', 'f-dt']).forEach(id => shown.add(id));
     if (api.fuel(pick)) document.documentElement.dataset.fuel = pick;
-    $('#fuels').innerHTML = api.fuels.map(f => `<button class="chip" type="button" data-f="${f.id}" aria-pressed="${shown.has(f.id)}"><span class="sw" style="background:${FUEL_META[f.id].color}"></span>${esc(f.name)}</button>`).join('');
+    $('#fuels').innerHTML = api.fuels.map(f => `<button class="chip" type="button" data-f="${f.id}" aria-pressed="${shown.has(f.id)}">${tag(f.id)}${esc(f.name)}</button>`).join('');
     document.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => {
       const id = b.dataset.f; shown.has(id) ? shown.size > 1 && shown.delete(id) : shown.add(id);
       document.querySelectorAll('[data-f]').forEach(x => x.setAttribute('aria-pressed', shown.has(x.dataset.f))); render();
