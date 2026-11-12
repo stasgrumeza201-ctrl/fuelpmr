@@ -29,31 +29,29 @@ export function chrome() {
   const links = PAGES.map(([href, label, ic]) => `<a href="${href}"${href === here ? ' aria-current="page"' : ''}>${icon(ic)}${label}</a>`).join('');
   document.body.insertAdjacentHTML('afterbegin', `<header class="site-header gutter"><div class="wrap bar">
     <a class="logo" href="./">${icon('gas-station-linear')}Топливо ПМР</a>
-    <nav class="nav" aria-label="Разделы">${links}</nav>
-    <span class="status num" id="status" role="status"><i></i><span>Загружаем цены…</span></span></div></header>`);
+    <nav class="nav" aria-label="Разделы">${links.replace(/<svg[^]*?<\/svg>/g, '')}</nav></div></header>
+    <div class="load-err gutter" id="loadErr" role="alert" hidden><div class="wrap"></div></div>`);
   document.body.insertAdjacentHTML('beforeend', `<nav class="tabbar" aria-label="Разделы">${links}</nav>
-    <footer class="site-footer gutter"><div class="wrap"><p>Независимый трекер цен, не связан с сетью «Шериф». Текущие цены берутся с официального сайта
-    <a href="https://sheriff.md/activities/nefteprodukty/ceny_po_regionam/" target="_blank" rel="noopener">sheriff.md</a> каждые 30 минут,
-    история до 12 ноября 2026 года — из Telegram-канала <a href="https://t.me/fuelpmr" target="_blank" rel="noopener">«Топливо ПМР»</a>.
+    <footer class="site-footer gutter"><div class="wrap"><p id="asOf"></p><p>Независимый трекер цен, не связан с сетью «Шериф». Цены берутся с официального сайта
+    <a href="https://sheriff.md/activities/nefteprodukty/ceny_po_regionam/" target="_blank" rel="noopener">sheriff.md</a> и проверяются каждые 30 минут.
     Перед заправкой сверяйте цену на АЗС. Сайт не использует cookie и не собирает данные посетителей.</p></div></footer>`);
 }
 
 // данные: загружаются при открытии и перепроверяются каждые 10 минут, пока страница открыта
 export function watchData(onData) {
   let last = '';
-  const status = () => document.getElementById('status');
+  const err = msg => { const e = document.getElementById('loadErr'); e.hidden = !msg; e.firstElementChild.textContent = msg || ''; };
   async function load() {
     try {
       const [l, h] = await Promise.all([fetch('data/latest.json', { cache: 'no-cache' }), fetch('data/history.json', { cache: 'no-cache' })]);
       if (!l.ok) throw new Error('latest ' + l.status);
       const latest = await l.json(), history = h.ok ? await h.json() : [];
-      status().classList.remove('err');
-      status().lastElementChild.textContent = 'Цены от ' + fmtDateTime(latest.changedAt);
+      err('');
+      document.getElementById('asOf').textContent = 'Цены от ' + fmtDateTime(latest.changedAt);
       const key = latest.changedAt + history.length;
       if (key !== last) { last = key; onData(makeApi(latest, history)); }
     } catch {
-      status().classList.add('err');
-      status().lastElementChild.textContent = last ? 'Нет связи, показаны прошлые цены' : 'Не удалось загрузить цены';
+      err(last ? 'Нет связи с сервером, показаны последние загруженные цены' : 'Не удалось загрузить цены. Проверьте интернет и обновите страницу');
     }
   }
   load();
@@ -85,6 +83,8 @@ function makeApi(latest, history) {
   };
 }
 
-export const deltaPill = (d, suffix = '') => d == null ? '' : d === 0
-  ? `<span class="pill">без изменений${suffix}</span>`
-  : `<span class="pill ${d < 0 ? 'down' : 'up'}">${icon(d < 0 ? 'arrow-down-linear' : 'arrow-up-linear')}${rub(Math.abs(d))} ₽${suffix}</span>`;
+// ярлык марки топлива
+export const tag = id => `<span class="tag" style="background:${FUEL_META[id].color}">${FUEL_META[id].code}</span>`;
+// изменение цены текстом: «−0,20 ₽», цвет только у знака изменения
+export const delta = d => d == null ? '—' : d === 0 ? 'без изменений'
+  : `<span class="${d < 0 ? 'd-down' : 'd-up'}">${d < 0 ? '−' : '+'}${rub(Math.abs(d))} ₽</span>`;
